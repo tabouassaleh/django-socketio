@@ -1,4 +1,3 @@
-
 from re import match
 from thread import start_new_thread
 from time import sleep
@@ -6,7 +5,7 @@ from os import getpid, kill, environ
 from signal import SIGINT
 
 from django.conf import settings
-from django.core.handlers.wsgi import WSGIHandler
+from django.core.wsgi import get_wsgi_application
 from django.core.management.base import BaseCommand, CommandError
 from django.core.management.commands.runserver import naiveip_re
 from django.utils.autoreload import code_changed, restart_with_reloader
@@ -53,8 +52,8 @@ class Command(BaseCommand):
             print
             print "SocketIOServer running on %s:%s" % bind
             print
-            handler = self.get_handler(*args, **options)
-            server = SocketIOServer(bind, handler, resource="socket.io")
+            handler = get_wsgi_application()
+            server = SocketIOServer(bind, handler, namespace="socket.io")
             server.serve_forever()
         except KeyboardInterrupt:
             client_end_all()
@@ -65,19 +64,3 @@ class Command(BaseCommand):
                 restart_with_reloader()
             else:
                 raise
-
-    def get_handler(self, *args, **options):
-        """
-        Returns the django.contrib.staticfiles handler.
-        """
-        handler = WSGIHandler()
-        try:
-            from django.contrib.staticfiles.handlers import StaticFilesHandler
-        except ImportError:
-            return handler
-        use_static_handler = options.get('use_static_handler', True)
-        insecure_serving = options.get('insecure_serving', False)
-        if (settings.DEBUG and use_static_handler or
-                (use_static_handler and insecure_serving)):
-            handler = StaticFilesHandler(handler)
-        return handler

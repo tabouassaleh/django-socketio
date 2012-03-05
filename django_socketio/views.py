@@ -17,43 +17,49 @@ def socketio(request):
     """
     context = {}
     socket = SocketIOChannelProxy(request.environ["socketio"])
+    print 'TAA: In socketio view. Socket = %s\n' % str(socket)
     client_start(request, socket, context)
     try:
-        if socket.on_connect():
+        if socket.session.connected:
             events.on_connect.send(request, socket, context)
         while True:
-            messages = socket.recv()
-            if not messages and not socket.connected():
+            message = socket.receive()
+            print 'Message = %s' % str(message)
+            if not message and not socket.session.connected:
                 events.on_disconnect.send(request, socket, context)
                 break
             # Subscribe and unsubscribe messages are in two parts, the
             # name of either and the channel, so we use an iterator that
             # lets us jump a step in iteration to grab the channel name
             # for these.
-            messages = iter(messages)
-            for message in messages:
-                if message == "__subscribe__":
-                    message = messages.next()
-                    message_type = "subscribe"
-                    socket.subscribe(message)
-                    events.on_subscribe.send(request, socket, context, message)
-                elif message == "__unsubscribe__":
-                    message = messages.next()
-                    message_type = "unsubscribe"
-                    socket.unsubscribe(message)
-                    events.on_unsubscribe.send(request, socket, context, message)
+            if not message: break
+            if message['type'] == 'event':
+                # Handle socket.emit(event, data) semantics from the client.
+                if message['name'] == '__subscribe__':
+                    # To subscribe on the client: socket.emit('__subscribe__', 'ch1', 'ch2')
+                    for channel in message['args']:
+                        socket.subscribe(channel)
+                        events.on_subscribe.send(request, socket, context, channel)
+                    log_message = format_log(request, 'subscribe', message['args'])
+                elif message['name'] == '__unsubscribe__':
+                    # To unsubscribe on the client: socket.emit('__unsubscribe__', 'ch1', 'ch2')
+                    for channel in message['args']:
+                        socket.unsubscribe(channel)
+                        events.on_unsubscribe.send(request, socket, context, channel)
+                    log_message = format_log(request, 'unsubscribe', message['args'])
                 else:
-                    # Socket.IO sends arrays as individual messages, so
-                    # they're put into an object in socketio_scripts.html
-                    # and given the __array__ key so that they can be
-                    # handled consistently in the on_message event.
-                    message_type = "message"
-                    if message == "__array__":
-                        message = messages.next()
                     events.on_message.send(request, socket, context, message)
-                log_message = format_log(request, message_type, message)
-                if log_message:
-                    socket.handler.server.log.write(log_message)
+                    log_message = format_log(request, '***Unkown Event***', message)
+            elif message['type'] == 'message':
+                # Handle WebSocket semantics using socket.send(data) on the client.
+                events.on_message.send(request, socket, context, message['data'])
+                log_message = format_log(request, message['type'], message['data'])
+            else:
+                print 'Unkown message type. Message = %s' % str(message)
+                log_message = format_log(request, '***Unknown Type***', message)
+            if log_message:
+                socket.handler.server.log.write(log_message)
+                
     except Exception, exception:
         from traceback import print_exc
         print_exc()
