@@ -1,4 +1,18 @@
-.. image:: https://secure.travis-ci.org/stephenmcd/django-socketio.png?branch=master
+This is a fork of https://github.com/stephenmcd/django-socketio. The goali
+is to make django-socketio work with the latest gevent-socketio and the
+socket.io client library.
+
+For the current implementation to work in Django 1.4b1, in
+`django/core/handlers/wsgi.py` change the line::
+
+    start_response(status, response_headers)
+
+to::
+
+    if start_response: start_response(status, response_headers)
+
+This is necessary because the the gevent handler passes None as parameter
+for `start_response` to `WSGIHandler`.
 
 Introduction
 ============
