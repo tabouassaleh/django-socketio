@@ -17,7 +17,6 @@ def socketio(request):
     """
     context = {}
     socket = SocketIOChannelProxy(request.environ["socketio"])
-    print 'TAA: In socketio view. Socket = %s\n' % str(socket)
     client_start(request, socket, context)
     try:
         if socket.session.connected:
