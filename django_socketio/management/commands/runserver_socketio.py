@@ -9,7 +9,7 @@ from django.core.wsgi import get_wsgi_application
 from django.core.management.base import BaseCommand, CommandError
 from django.core.management.commands.runserver import naiveip_re
 from django.utils.autoreload import code_changed, restart_with_reloader
-from socketio import SocketIOServer
+from socketio.server import SocketIOServer
 
 from django_socketio.clients import client_end_all
 from django_socketio.settings import HOST, PORT
